@@ -4,10 +4,10 @@
   "description": "Licence validation helpers for HULO Vendure plugins. JWT verification, revocation polling and an admin status check used by paid HULO plugins to confirm the host installation is licensed.",
   "license": "AGPL-3.0-or-later",
   "author": "Wayne Garrison <wayne@garrison.me.uk>",
-  "homepage": "https://github.com/exceeded/vendure-licence-sdk",
+  "homepage": "https://github.com/huloglobal/vendure-licence-sdk",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/exceeded/vendure-licence-sdk.git"
+    "url": "git+https://github.com/huloglobal/vendure-licence-sdk.git"
   },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
