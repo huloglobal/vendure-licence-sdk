@@ -4,6 +4,15 @@ All notable changes to `@huloglobal/vendure-licence-sdk` are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and
 this project adheres to [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.2] — 2026-11-03
+
+### Fixed
+- `WeeklyDigest`: when the very first weekly send failed, the clock was
+  "given back" as an empty `digest.lastSentAt`, which never matched the
+  `null` the next tick compared against, so the report was never sent again.
+  The row is now removed instead (new `PluginPrefs.casDelete`) and the next
+  tick retries.
+
 ## [0.15.1] — 2026-10-11
 
 ### Fixed

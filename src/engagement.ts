@@ -104,6 +104,19 @@ export class PluginPrefs {
             return false;
         }
     }
+
+    /** Delete `key` only while it still holds `expected`. */
+    async casDelete(key: string, expected: string): Promise<boolean> {
+        try {
+            const res = await this.query(
+                'DELETE FROM hulo_plugin_prefs WHERE pluginId = ? AND prefKey = ? AND prefValue = ?',
+                [this.pluginId, key, expected]);
+            return affected(res) > 0;
+        } catch (e: any) {
+            Logger.warn(`[${this.pluginId}] pref CAS delete ${key} failed: ${e?.message}`, loggerCtx);
+            return false;
+        }
+    }
 }
 
 function affected(res: any): number {
@@ -476,8 +489,11 @@ export class WeeklyDigest {
                 return true;
             } catch (e: any) {
                 Logger.warn(`[${this.opts.pluginId}] weekly report failed: ${e?.message}`, loggerCtx);
-                // Give the clock back so the next tick retries.
-                await this.opts.prefs.cas('digest.lastSentAt', now.toISOString(), last ?? '');
+                // Give the clock back so the next tick retries. With no earlier
+                // send the row must go (an empty value would never match `null`
+                // again and the report would stay stuck until an admin intervened).
+                if (last === null) await this.opts.prefs.casDelete('digest.lastSentAt', now.toISOString());
+                else await this.opts.prefs.cas('digest.lastSentAt', now.toISOString(), last);
                 return false;
             }
         } finally {

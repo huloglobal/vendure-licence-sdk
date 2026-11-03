@@ -19,7 +19,10 @@ function memoryPrefs() {
             if (rows.get(key) !== params[3]) return { affectedRows: 0 };
             rows.set(key, params[0]); return { affectedRows: 1 };
         }
-        if (/^DELETE/i.test(sql)) { rows.delete(k(params[0], params[1])); return { affectedRows: 1 }; }
+        if (/^DELETE/i.test(sql)) {
+            if (params.length > 2 && rows.get(k(params[0], params[1])) !== params[2]) return { affectedRows: 0 };
+            return { affectedRows: rows.delete(k(params[0], params[1])) ? 1 : 0 };
+        }
         throw new Error('unexpected sql: ' + sql);
     });
     return { query, rows };
@@ -115,6 +118,16 @@ describe('PluginPrefs + WeeklyDigest', () => {
         expect(await d.tick(t3)).toBe(false);
         expect(rows.get('vendure-plugin-geo-block|digest.lastSentAt')).toBe(new Date(monday.getTime() + 7 * 86_400_000).toISOString());
         expect(await d.tick(new Date(t3.getTime() + 3_600_000))).toBe(true);
+    });
+    it('retries after the very first weekly send fails (no lastSentAt yet)', async () => {
+        const monday = new Date('2026-10-12T09:00:00');
+        const send = vi.fn(async () => undefined);
+        send.mockRejectedValueOnce(new Error('smtp down'));
+        const { d, rows } = mk(send);
+        expect(await d.tick(monday)).toBe(false);
+        expect(rows.has('vendure-plugin-geo-block|digest.lastSentAt')).toBe(false);
+        expect(await d.tick(new Date(monday.getTime() + 3_600_000))).toBe(true);
+        expect(send).toHaveBeenCalledTimes(2);
     });
     it('does nothing when disabled or without any recipient', async () => {
         const monday = new Date('2026-10-12T09:00:00');
