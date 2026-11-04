@@ -4,6 +4,11 @@ All notable changes to `@huloglobal/vendure-licence-sdk` are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and
 this project adheres to [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.3] — 2026-11-04
+
+### Documentation
+- The README now shows the HULO Global logo, hosted on huloglobal.com so it displays on npm and GitHub alike, linking to the product page. No code changes.
+
 ## [0.15.2] — 2026-11-03
 
 ### Fixed

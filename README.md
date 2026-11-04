@@ -1,3 +1,5 @@
+<p align="center"><a href="https://huloglobal.com/vendure-plugins/"><img src="https://huloglobal.com/vendure-plugins/logos/hulo-global.svg" width="96" height="96" alt="HULO Global logo"></a></p>
+
 # @huloglobal/vendure-licence-sdk
 
 Shared runtime utilities used by every commercial HULO Vendure plugin.
