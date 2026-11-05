@@ -89,10 +89,12 @@ export class PluginPrefs {
     async cas(key: string, expected: string | null, value: string): Promise<boolean> {
         try {
             if (expected === null) {
+                // needAffected: on Postgres an INSERT without RETURNING comes back
+                // as an empty row list, which would read as "another worker won".
                 const res = await this.query(
                     'INSERT IGNORE INTO hulo_plugin_prefs (pluginId, prefKey, prefValue, updatedAt) VALUES (?, ?, ?, NOW())',
                     [this.pluginId, key, value],
-                    { conflictColumns: ['pluginId', 'prefKey'] });
+                    { conflictColumns: ['pluginId', 'prefKey'], needAffected: true });
                 return affected(res) > 0;
             }
             const res = await this.query(

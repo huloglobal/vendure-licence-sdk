@@ -4,6 +4,31 @@ All notable changes to `@huloglobal/vendure-licence-sdk` are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and
 this project adheres to [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.4] — 2026-11-04
+
+### Fixed
+- **Postgres: affected-row counts.** `adapterFor(...).query(sql, params, { needAffected: true })`
+  returned `affectedRows: 2` for every `UPDATE` and `DELETE`, because TypeORM's Postgres driver
+  answers those with `[rows, rowCount]` and the adapter counted the pair. It now reads `rowCount`,
+  so callers that test "did this update hit a row" or loop "until fewer than a batch were deleted"
+  behave the same on Postgres as on MySQL/MariaDB. Until now, on Postgres, a check for "exactly one
+  row" always failed and a check for "any row" always passed. For example, Quotations could not
+  allocate a quote number, and two Business Credit redemptions at the same moment could spend the
+  same loyalty points.
+- **Postgres: the first weekly report.** `PluginPrefs.cas(key, null, value)` (the first write of a
+  value) returned `false` on Postgres even when it had written the row, because an `INSERT` without
+  `RETURNING` comes back as an empty row list. The weekly report's first send was therefore skipped
+  and the report started a week late. The insert now asks the adapter for its row count.
+  `SqlQueryFn`'s options gain the optional `needAffected`.
+- MySQL and MariaDB behave exactly as before. The 2026-11-04 releases of Business Credit, Checkout
+  Guard, Fraud Prevention, Geo Block, Payments, Quotations, Review Requests and Visitor Analytics
+  depend on `^0.15.4`.
+
+### Package metadata
+- `homepage` is now https://huloglobal.com/vendure-plugins/ instead of the GitHub repository.
+- The `description` lists what the SDK provides, and keywords add `licensing` and `jwt`.
+- The README's Licence section said MIT; it now says AGPL-3.0, as `LICENSE` does, with a separate commercial licence for the npm builds.
+
 ## [0.15.3] — 2026-11-04
 
 ### Documentation

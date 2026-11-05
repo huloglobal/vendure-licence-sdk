@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { translateSql, dialectOf } from '../src/sql-dialect';
+import { translateSql, dialectOf, createDbAdapter } from '../src/sql-dialect';
 
 const pg = (sql: string, opts?: any) => translateSql(sql, 'postgres', opts);
 
@@ -162,5 +162,21 @@ describe('adapter row-key restoration (postgres)', () => {
         const db = createDbAdapter(fake as any);
         await db.query('SELECT `a` FROM t WHERE x = ?', [1]);
         expect(seen).toBe('SELECT `a` FROM t WHERE x = ?');
+    });
+});
+
+
+describe('affected rows through TypeORM (postgres)', () => {
+    const pg = (answer: any) => createDbAdapter({ options: { type: 'postgres' }, query: async () => answer });
+    it('reads rowCount from the [rows, rowCount] pair TypeORM returns for UPDATE and DELETE', async () => {
+        expect((await pg([[{ '?column?': 1 }, { '?column?': 1 }, { '?column?': 1 }], 3]).query('UPDATE t SET a = 1', [], { needAffected: true })).affectedRows).toBe(3);
+        expect((await pg([[], 0]).query('DELETE FROM t WHERE id = ?', [1], { needAffected: true })).affectedRows).toBe(0);
+        expect((await pg([[{ '?column?': 1 }], 1]).query('DELETE FROM t WHERE id = ?', [1], { needAffected: true })).affectedRows).toBe(1);
+    });
+    it('still counts the rows of INSERT … RETURNING and keeps the insert id', async () => {
+        const one = await pg([{ id: 7 }]).query('INSERT INTO t (a) VALUES (?)', [1], { needInsertId: true });
+        expect(one).toEqual({ insertId: 7, affectedRows: 1 });
+        const two = await pg([{ id: 8 }, { id: 9 }]).query('INSERT INTO t (a) VALUES (?), (?)', [1, 2], { needAffected: true });
+        expect(two.affectedRows).toBe(2);
     });
 });

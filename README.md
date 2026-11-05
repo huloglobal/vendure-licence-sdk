@@ -1,4 +1,4 @@
-<p align="center"><a href="https://huloglobal.com/vendure-plugins/"><img src="https://huloglobal.com/vendure-plugins/logos/hulo-global.svg" width="96" height="96" alt="HULO Global logo"></a></p>
+<p align="center"><a href="https://huloglobal.com/vendure-plugins/"><img src="https://huloglobal.com/vendure-plugins/logos/hulo-global.svg?v=2" width="96" height="96" alt="HULO Global logo"></a></p>
 
 # @huloglobal/vendure-licence-sdk
 
@@ -146,8 +146,9 @@ keys can be re-sent from
 
 ## Licence
 
-MIT for the runtime helpers in this package. The plugin code embedding
-it sells under a separate commercial licence.
+AGPL-3.0 (the source on GitHub; see `LICENSE`). Published builds on npm are
+also distributed under a separate commercial licence for paid use; see
+[huloglobal.com/legal/terms](https://huloglobal.com/legal/terms/).
 
 ## Merchant engagement kit (0.15.0)
 

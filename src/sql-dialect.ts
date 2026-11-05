@@ -337,10 +337,15 @@ export function createDbAdapter(rawConnection: {
                 if (!/RETURNING/i.test(translated)) {
                     translated = translated.replace(/;?\s*$/, opts.needInsertId ? ' RETURNING id' : ' RETURNING 1');
                 }
-                const rows = await rawConnection.query(translated, params);
+                const res = await rawConnection.query(translated, params);
+                // TypeORM's Postgres driver answers UPDATE and DELETE with
+                // [rows, rowCount] and every other statement with the rows,
+                // so the pair's length (always 2) is not the row count.
+                const pair = Array.isArray(res) && res.length === 2 && Array.isArray(res[0]) && typeof res[1] === 'number';
+                const rows = pair ? res[0] : res;
                 return {
                     insertId: rows?.[0]?.id,
-                    affectedRows: Array.isArray(rows) ? rows.length : 0,
+                    affectedRows: pair ? res[1] : (Array.isArray(rows) ? rows.length : 0),
                 };
             }
             return restoreRowKeys(await rawConnection.query(translated, params));

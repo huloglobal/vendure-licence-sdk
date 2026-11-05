@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { PluginPrefs, composeDigest, licenceLifecycleNotice, WeeklyDigest } from '../src/engagement';
 import { Heartbeat } from '../src/heartbeat';
+import { createDbAdapter } from '../src/sql-dialect';
 
 vi.mock('@vendure/core', () => ({ Logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }));
 
@@ -143,6 +144,66 @@ describe('PluginPrefs + WeeklyDigest', () => {
         expect(r.sent).toBe(true); expect(r.to).toBe('test@shop.test'); expect(r.preview.subject).toContain('Geo Block');
         expect(send).toHaveBeenCalledTimes(1);
         expect(rows.has('vendure-plugin-geo-block|digest.lastSentAt')).toBe(false);
+    });
+});
+
+/**
+ * hulo_plugin_prefs behind the real SDK adapter, with a connection that
+ * answers like TypeORM's Postgres driver: UPDATE and DELETE come back as
+ * `[rows, rowCount]`, every other statement as its rows only, so an INSERT
+ * without RETURNING is always `[]`.
+ */
+function postgresPrefs() {
+    const rows = new Map<string, string>();
+    const k = (p: string, key: string) => `${p}|${key}`;
+    const query = vi.fn(async (sql: string, params: any[] = []) => {
+        if (/^SELECT prefValue FROM hulo_plugin_prefs WHERE pluginId = \$1 AND prefKey = \$2$/.test(sql)) {
+            return rows.has(k(params[0], params[1])) ? [{ prefvalue: rows.get(k(params[0], params[1])) }] : [];
+        }
+        if (/^SELECT prefKey, prefValue FROM hulo_plugin_prefs WHERE pluginId = \$1$/.test(sql)) {
+            return [...rows.entries()].filter(([key]) => key.startsWith(params[0] + '|')).map(([key, v]) => ({ prefkey: key.split('|')[1], prefvalue: v }));
+        }
+        if (/^INSERT INTO hulo_plugin_prefs .* ON CONFLICT DO NOTHING( RETURNING 1)?$/.test(sql)) {
+            const inserted = !rows.has(k(params[0], params[1]));
+            if (inserted) rows.set(k(params[0], params[1]), params[2]);
+            return / RETURNING 1$/.test(sql) && inserted ? [{ '?column?': 1 }] : [];
+        }
+        if (/^UPDATE hulo_plugin_prefs SET prefValue = \$1, updatedAt = NOW\(\) WHERE pluginId = \$2 AND prefKey = \$3 AND prefValue = \$4$/.test(sql)) {
+            const key = k(params[1], params[2]);
+            if (rows.get(key) !== params[3]) return [[], 0];
+            rows.set(key, params[0]); return [[], 1];
+        }
+        if (/^DELETE FROM hulo_plugin_prefs WHERE pluginId = \$1 AND prefKey = \$2 AND prefValue = \$3$/.test(sql)) {
+            if (rows.get(k(params[0], params[1])) !== params[2]) return [[], 0];
+            rows.delete(k(params[0], params[1])); return [[], 1];
+        }
+        throw new Error('unexpected sql: ' + sql);
+    });
+    const db = createDbAdapter({ options: { type: 'postgres' }, query });
+    return { query: (sql: string, params?: any[], opts?: any) => db.query(sql, params, opts), rows };
+}
+
+describe('PluginPrefs + WeeklyDigest on Postgres', () => {
+    it('a first compare-and-set wins once (the INSERT is counted, not read as "another worker won")', async () => {
+        const { query, rows } = postgresPrefs();
+        const prefs = new PluginPrefs(query, 'vendure-plugin-quotations');
+        expect(await prefs.cas('digest.lastSentAt', null, '2026-10-12T08:00:00.000Z')).toBe(true);
+        expect(await prefs.cas('digest.lastSentAt', null, '2026-10-12T08:05:00.000Z')).toBe(false);
+        expect(rows.get('vendure-plugin-quotations|digest.lastSentAt')).toBe('2026-10-12T08:00:00.000Z');
+        expect(await prefs.cas('digest.lastSentAt', '2026-10-12T08:00:00.000Z', '2026-10-19T08:00:00.000Z')).toBe(true);
+        expect(await prefs.casDelete('digest.lastSentAt', 'not-the-value')).toBe(false);
+        expect(await prefs.casDelete('digest.lastSentAt', '2026-10-19T08:00:00.000Z')).toBe(true);
+    });
+    it('sends the very first weekly report on its first due tick, and only once', async () => {
+        const monday = new Date('2026-10-12T09:00:00');
+        const { query } = postgresPrefs();
+        const prefs = new PluginPrefs(query, 'vendure-plugin-quotations');
+        const send = vi.fn(async () => undefined);
+        const collect = vi.fn(async () => ({ stats: [{ key: 'quotesSent', label: 'quotes sent', value: 3 }], tier: 'paid' as const }));
+        const d = new WeeklyDigest({ pluginId: 'vendure-plugin-quotations', pluginName: 'Quotations', prefs, collect, send, defaultRecipient: () => 'owner@shop.test' });
+        expect(await d.tick(monday)).toBe(true);
+        expect(await d.tick(new Date(monday.getTime() + 3_600_000))).toBe(false);
+        expect(send).toHaveBeenCalledTimes(1);
     });
 });
 

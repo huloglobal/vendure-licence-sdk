@@ -22,7 +22,7 @@
 export type SqlQueryFn = (
     sql: string,
     params?: any[],
-    opts?: { conflictColumns?: string[] },
+    opts?: { conflictColumns?: string[]; needAffected?: boolean },
 ) => Promise<any>;
 
 const TABLE_DDL = `
