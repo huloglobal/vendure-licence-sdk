@@ -1,8 +1,8 @@
 {
   "name": "@huloglobal/vendure-licence-sdk",
-  "version": "0.15.4",
+  "version": "0.15.5",
   "description": "Shared runtime helpers for HULO's Vendure plugins: offline licence key verification, revocation and update checks, webhook signature checks, rate limiting, security headers, log retention and the plugins' weekly report.",
-  "license": "AGPL-3.0-or-later",
+  "license": "AGPL-3.0-only",
   "author": "Wayne Garrison <wayne@garrison.me.uk>",
   "homepage": "https://huloglobal.com/vendure-plugins/",
   "repository": {
