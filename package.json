@@ -1,6 +1,6 @@
 {
   "name": "@huloglobal/vendure-licence-sdk",
-  "version": "0.15.5",
+  "version": "0.15.6",
   "description": "Shared runtime helpers for HULO's Vendure plugins: offline licence key verification, revocation and update checks, webhook signature checks, rate limiting, security headers, log retention and the plugins' weekly report.",
   "license": "AGPL-3.0-only",
   "author": "Wayne Garrison <wayne@garrison.me.uk>",
@@ -33,8 +33,8 @@
     "nodemailer": ">=6.0.0"
   },
   "devDependencies": {
-    "@nestjs/common": "^10.0.0",
-    "@vendure/core": "^3.6.0",
+    "@nestjs/common": "^12.0.1",
+    "@vendure/core": "3.8.2",
     "typescript": "^5.4.0",
     "vitest": "^2.0.0"
   },

@@ -59,3 +59,9 @@ export {
 } from './vendure-compat';
 export { translateSql, createDbAdapter, adapterFor, dialectOf } from './sql-dialect';
 export type { SqlDialect, DbAdapter, TranslateOptions } from './sql-dialect';
+export {
+    isAdminApiSession,
+    vendureSessionsHaveApiType,
+    vendureVersionHasSessionApiType,
+    setVendureSessionsHaveApiTypeForTests,
+} from './admin-session';

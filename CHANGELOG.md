@@ -4,6 +4,19 @@ All notable changes to `@huloglobal/vendure-licence-sdk` are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and
 this project adheres to [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.6] — 2026-11-13
+
+### Added
+- `isAdminApiSession(ctx)`: for plugin REST routes gated by an admin permission. Vendure 3.8 records the API
+  each session was created on (`session.apiType`) and refuses Shop-API sessions on the Admin API
+  (GHSA-5fpx-9m35-w745), but leaves plugin REST routes to the plugin. The helper applies core's rule: on
+  3.8+ only `apiType === 'admin'` passes (pre-3.8 API-key sessions too, as in core); anonymous or missing
+  sessions are left to the permission check; on Vendure 3.5 to 3.7 it always returns `true`. Also exported:
+  `vendureSessionsHaveApiType()`, `vendureVersionHasSessionApiType(version)` and a test hook.
+
+### Compatibility
+- **Tested with Vendure 3.8.2** (NestJS 12, `@nestjs/graphql` 14, Apollo Server 5).
+
 ## [0.15.5] — 2026-11-05
 
 ### Package metadata
