@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { PluginPrefs, composeDigest, licenceLifecycleNotice, WeeklyDigest } from '../src/engagement';
+import { PluginPrefs, composeDigest, emailLayout, formatStat, licenceLifecycleNotice, WeeklyDigest } from '../src/engagement';
 import { Heartbeat } from '../src/heartbeat';
 import { createDbAdapter } from '../src/sql-dialect';
 
@@ -59,12 +59,45 @@ describe('composeDigest', () => {
         const free = composeDigest({ ...baseInput(), tier: 'free', premiumFeatures: ['Enforce mode', 'Threat feeds'] });
         expect(free.text).toContain('Switch on with a licence:');
         expect(free.text).toContain('https://elite.charity/licence/buy/vendure-plugin-fraud-prevention');
-        expect(free.html).toContain('Start the 14-day free trial');
+        expect(free.html).toContain('Get a licence');
     });
     it('falls back to a quiet-week subject when nothing happened', () => {
         const m = composeDigest({ ...baseInput(), stats: [{ key: 'x', label: 'x', value: 0 }] });
         expect(m.subject).toBe('Fraud Prevention: your weekly report');
         expect(m.text).toContain('was quiet last week');
+    });
+
+    it('uses the shared e-mail design: card, accent bar, inline styles only, sign-off', () => {
+        const m = composeDigest({ ...baseInput(), storeName: 'Shop & Co', accentColor: '#ff0000' });
+        expect(m.html).toContain('max-width:600px');
+        expect(m.html).toContain('border:1px solid #e5e7eb;border-radius:10px');
+        expect(m.html).toContain('background-color:#f3f4f6');
+        expect(m.html).toContain('border-bottom:3px solid #ff0000');
+        expect(m.html).toContain('Shop &amp; Co');
+        expect(m.html).not.toMatch(/<style/i);
+        expect(m.html).toContain('Kind regards,');
+        expect(m.text).toContain('Kind regards,');
+    });
+
+    it('ignores a non-hex accent colour and a non-https logo', () => {
+        const m = composeDigest({ ...baseInput(), accentColor: 'red;background:url(x)', logoUrl: 'javascript:alert(1)' });
+        expect(m.html).toContain('border-bottom:3px solid #155dfc');
+        expect(m.html).not.toContain('javascript:');
+        const withLogo = composeDigest({ ...baseInput(), logoUrl: 'https://shop.test/logo.png' });
+        expect(withLogo.html).toContain('<img src="https://shop.test/logo.png"');
+        expect(withLogo.html).toContain('width="140"');
+    });
+
+    it('formats money stats in their own currency (GBP by default)', () => {
+        expect(formatStat({ key: 'a', label: 'a', value: 123456, format: 'pence' })).toBe('£1,234.56');
+        expect(formatStat({ key: 'a', label: 'a', value: 123456, format: 'pence', currency: 'EUR' })).toBe('€1,234.56');
+        expect(formatStat({ key: 'a', label: 'a', value: 500, format: 'pence', currency: 'bad' })).toBe('£5.00');
+    });
+
+    it('emailLayout escapes the brand name and footer is optional', () => {
+        const html = emailLayout({ title: 'T', brandName: '<b>X</b>', bodyHtml: '<p>hi</p>' });
+        expect(html).toContain('&lt;b&gt;X&lt;/b&gt;');
+        expect(html).not.toContain('background-color:#f9fafb;border-top');
     });
 });
 

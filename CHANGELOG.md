@@ -4,6 +4,28 @@ All notable changes to `@huloglobal/vendure-licence-sdk` are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and
 this project adheres to [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.7] — 2026-11-16
+
+### Changed
+- **Weekly report restyled** to the shared HULO plugin e-mail design (matching the storefront order
+  e-mails): a 600px white card with a 1px border and 10px radius on `#f3f4f6`, the store name (or an
+  optional `logoUrl`) above a 3px accent bar, 22px heading, info and warning boxes, primary and outline
+  buttons, a "Kind regards" sign-off and an 11px footer strip. Arial, table layout, inline styles only;
+  every value is escaped. The plain-text alternative is unchanged apart from the sign-off.
+- The free-tier call to action now reads "Get a licence" (it said "Start the 14-day free trial";
+  the evaluation needs no card and is not a purchase).
+
+### Added
+- `DigestInput.logoUrl` (https only) and `DigestInput.accentColor` (hex; anything else falls back to
+  `#155dfc`), both optional.
+- `DigestStat.currency` (ISO 4217) for `format: 'pence'` stats; money was always shown in pounds.
+  Defaults to GBP, so existing reports are unchanged.
+- `emailLayout()`: the same e-mail shell for plugin e-mails.
+
+### Dependencies
+- Dev: `@nestjs/common` ^12.5.0, `typescript` ^5.9.3, `vitest` ^2.1.9 (held on 2.x: the monorepo
+  harness pins Vitest 2.1.9 for every package).
+
 ## [0.15.6] — 2026-11-13
 
 ### Added

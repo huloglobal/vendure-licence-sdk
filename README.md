@@ -174,3 +174,10 @@ report" card on the plugin's admin page. `licenceLifecycleNotice()` returns
 the sentence the admin banner shows in the last week of a trial or key.
 `Heartbeat.setStatsProvider()` keeps the same usage numbers flowing to the
 licence server after purchase.
+
+The report (`composeDigest()`) uses the shared HULO plugin e-mail design: a
+600px white card on a light grey background, the store's logo (`logoUrl`, https
+only) or its name in bold, a 3px accent bar (`accentColor`, hex, default
+`#155dfc`), inline styles only, and a plain-text alternative. Money stats take
+an optional ISO `currency` (default GBP). `emailLayout()` exposes the same
+shell for plugin e-mails.

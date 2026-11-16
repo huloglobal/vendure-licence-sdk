@@ -36,7 +36,7 @@ export {
 } from './security';
 export { startRetentionSweeper, RetentionOptions } from './retention';
 export {
-    PluginPrefs, composeDigest, formatStat, licenceLifecycleNotice, smtpTransportFromEnv, WeeklyDigest,
+    PluginPrefs, composeDigest, emailLayout, EmailLayoutInput, formatStat, licenceLifecycleNotice, smtpTransportFromEnv, WeeklyDigest,
     DigestStat, DigestTip, DigestInput, DigestMail, DigestFormat, MailLike, MailTransport,
     WeeklyDigestOptions, WeeklyDigestSettings,
 } from './engagement';

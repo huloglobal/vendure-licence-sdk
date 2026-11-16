@@ -146,6 +146,8 @@ export interface DigestStat {
     format?: DigestFormat;
     /** Optional free-text rendering for `format: 'text'`. */
     text?: string;
+    /** ISO 4217 code for `format: 'pence'` (minor units); defaults to GBP. */
+    currency?: string;
 }
 
 export interface DigestTip {
@@ -180,6 +182,10 @@ export interface DigestInput {
     premiumFeatures?: string[];
     /** Where the admin changes or stops the report (admin page + tab). */
     settingsHint?: string;
+    /** Optional absolute https logo URL for the report header (the store's own logo). */
+    logoUrl?: string | null;
+    /** Optional hex accent colour for the header bar and buttons (default #155dfc). */
+    accentColor?: string | null;
 }
 
 export interface DigestMail {
@@ -188,14 +194,77 @@ export interface DigestMail {
     html: string;
 }
 
-const fmtMoney = (pence: number) => '£' + (pence / 100).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmtMoney = (pence: number, currency?: string | null) => {
+    const code = typeof currency === 'string' && /^[A-Z]{3}$/.test(currency) ? currency : 'GBP';
+    try {
+        return new Intl.NumberFormat('en-GB', { style: 'currency', currency: code }).format(pence / 100);
+    } catch {
+        return `${code} ${(pence / 100).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    }
+};
 const fmtInt = (n: number) => Math.round(n).toLocaleString('en-GB');
 const fmtDate = (d: Date) => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 const esc = (s: string) => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string));
 
+const DEFAULT_ACCENT = '#155dfc';
+/** Only plain hex colours reach a style attribute. */
+function safeColour(c?: string | null): string {
+    return typeof c === 'string' && /^#[0-9a-f]{3}([0-9a-f]{3})?$/i.test(c.trim()) ? c.trim() : DEFAULT_ACCENT;
+}
+function button(href: string, label: string, accent: string, primary: boolean): string {
+    const style = primary
+        ? `display:inline-block;background-color:${accent};color:#ffffff;font-weight:bold;font-size:14px;line-height:20px;text-decoration:none;padding:11px 20px;border-radius:8px;border:1px solid ${accent};`
+        : `display:inline-block;background-color:#ffffff;color:${accent};font-weight:bold;font-size:14px;line-height:20px;text-decoration:none;padding:11px 20px;border-radius:8px;border:1px solid ${accent};`;
+    return `<a href="${esc(href)}" style="${style}">${esc(label)}</a>`;
+}
+function box(kind: 'info' | 'warn', inner: string): string {
+    const bg = kind === 'warn' ? '#fffbeb' : '#f9fafb';
+    const border = kind === 'warn' ? '#fde68a' : '#e5e7eb';
+    return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:0 0 16px 0;"><tr><td style="padding:14px 16px;background-color:${bg};border:1px solid ${border};border-radius:8px;">${inner}</td></tr></table>`;
+}
+
+export interface EmailLayoutInput {
+    /** `<title>` of the document (escaped here). */
+    title: string;
+    /** Hidden preview line shown by mail clients (escaped here). */
+    preheader?: string;
+    /** Bold header text when there is no logo (escaped here). */
+    brandName: string;
+    /** Absolute https URL of a logo; rendered 140px wide. */
+    logoUrl?: string | null;
+    /** Hex accent colour for the header bar; defaults to #155dfc. */
+    accentColor?: string | null;
+    /** Already-escaped HTML for the card body. */
+    bodyHtml: string;
+    /** Already-escaped HTML for the footer strip (optional). */
+    footerHtml?: string;
+}
+
+/**
+ * The shared HULO plugin e-mail shell: a 600px white card (1px #e5e7eb
+ * border, 10px radius) on #f3f4f6, logo or bold name, a 3px accent bar,
+ * and an 11px footer strip. Table-based, inline styles only.
+ */
+export function emailLayout(input: EmailLayoutInput): string {
+    const accent = safeColour(input.accentColor);
+    const logo = typeof input.logoUrl === 'string' && /^https:\/\//i.test(input.logoUrl.trim())
+        ? `<img src="${esc(input.logoUrl.trim())}" alt="${esc(input.brandName)}" width="140" style="display:block;width:140px;max-width:140px;height:auto;border:0;">`
+        : `<span style="font-size:18px;line-height:24px;font-weight:bold;color:#111827;">${esc(input.brandName)}</span>`;
+    return '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">' +
+        `<title>${esc(input.title)}</title></head>` +
+        '<body style="margin:0;padding:0;background-color:#f3f4f6;font-family:Arial, Helvetica, sans-serif;">' +
+        (input.preheader ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:#f3f4f6;font-size:1px;line-height:1px;">${esc(input.preheader)}</div>` : '') +
+        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background-color:#f3f4f6;"><tr><td align="center" style="padding:24px 12px;">' +
+        '<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="border-collapse:separate;width:100%;max-width:600px;background-color:#ffffff;border:1px solid #e5e7eb;border-radius:10px;font-family:Arial, Helvetica, sans-serif;">' +
+        `<tr><td style="padding:22px 28px;border-bottom:3px solid ${accent};">${logo}</td></tr>` +
+        `<tr><td style="padding:28px 28px 24px 28px;font-size:14px;line-height:22px;color:#374151;">${input.bodyHtml}</td></tr>` +
+        (input.footerHtml ? `<tr><td style="padding:14px 28px;background-color:#f9fafb;border-top:1px solid #e5e7eb;border-radius:0 0 10px 10px;font-size:11px;line-height:16px;color:#6b7280;">${input.footerHtml}</td></tr>` : '') +
+        '</table></td></tr></table></body></html>';
+}
+
 export function formatStat(s: DigestStat): string {
     switch (s.format) {
-        case 'pence': return fmtMoney(s.value);
+        case 'pence': return fmtMoney(s.value, s.currency);
         case 'percent': return `${Math.round(s.value * 10) / 10}%`;
         case 'text': return s.text ?? String(s.value);
         default: return fmtInt(s.value);
@@ -287,41 +356,51 @@ export function composeDigest(input: DigestInput): DigestMail {
     }
     if (input.adminUrl) t.push('', `Open ${input.pluginName}: ${input.adminUrl}`);
     t.push(`Docs: ${docsUrl}`);
-    t.push('', 'Best,', 'HULO Global Limited', '',
+    t.push('', 'Kind regards,', 'HULO Global Limited', '',
         input.settingsHint || `Change the recipient or stop this weekly report in Admin → ${input.pluginName} → Weekly report.`);
 
-    // ── html ──
+    // ── html (shared HULO e-mail design: 600px card, accent bar, inline styles only) ──
+    const accent = safeColour(input.accentColor);
     const row = (s: DigestStat) => {
         const d = deltaText(s);
-        return `<tr><td style="padding:10px 12px;border-bottom:1px solid #eef1f5;font-size:22px;font-weight:600;color:#0f172a;white-space:nowrap">${esc(formatStat(s))}</td>` +
-            `<td style="padding:10px 12px;border-bottom:1px solid #eef1f5;color:#334155">${esc(s.label)}${d ? `<div style="font-size:12px;color:${d.startsWith('▼') ? '#b45309' : '#047857'}">${esc(d)}</div>` : ''}</td></tr>`;
+        return `<tr><td style="padding:10px 12px 10px 0;border-bottom:1px solid #f3f4f6;font-size:22px;line-height:28px;font-weight:bold;color:#111827;white-space:nowrap;vertical-align:top;">${esc(formatStat(s))}</td>` +
+            `<td style="padding:10px 0;border-bottom:1px solid #f3f4f6;font-size:14px;line-height:22px;color:#374151;vertical-align:top;">${esc(s.label)}${d ? `<div style="font-size:12px;line-height:18px;color:${d.startsWith('▼') ? '#b45309' : '#047857'};">${esc(d)}</div>` : ''}</td></tr>`;
     };
-    const h: string[] = [];
-    h.push(`<!doctype html><html><body style="margin:0;background:#f4f6f9;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#0f172a">`);
-    h.push(`<div style="max-width:600px;margin:0 auto;padding:24px 16px">`);
-    h.push(`<div style="background:#fff;border-radius:12px;padding:24px;border:1px solid #e5e9f0">`);
-    h.push(`<p style="margin:0 0 4px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#64748b">${esc(input.pluginName)} · weekly report</p>`);
-    h.push(`<h1 style="margin:0 0 12px;font-size:20px">${esc(period)}</h1>`);
-    h.push(`<p style="margin:0 0 16px;color:#334155">${esc(greeting)} ${esc(lead)}</p>`);
-    if (headline.length) h.push(`<table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;margin:0 0 16px">${headline.map(row).join('')}</table>`);
-    if (notice) h.push(`<p style="margin:0 0 16px;padding:10px 14px;border-radius:8px;background:#fffbeb;border:1px solid #fcd34d;color:#92400e">${esc(notice.message)}</p>`);
+    const body: string[] = [];
+    body.push(`<div style="font-size:12px;line-height:18px;color:#6b7280;text-transform:uppercase;letter-spacing:1px;font-weight:bold;padding:0 0 4px 0;">${esc(input.pluginName)} &middot; weekly report</div>`);
+    body.push(`<h1 style="margin:0 0 10px 0;font-size:22px;line-height:28px;font-weight:bold;color:#111827;">${esc(period)}</h1>`);
+    body.push(`<p style="margin:0 0 16px 0;font-size:14px;line-height:22px;color:#374151;">${esc(greeting)} ${esc(lead)}</p>`);
+    if (headline.length) body.push(`<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:0 0 16px 0;">${headline.map(row).join('')}</table>`);
+    if (notice) body.push(box('warn', `<div style="font-size:14px;line-height:22px;color:#78350f;">${esc(notice.message)}</div>`));
     if (input.tier !== 'paid' && input.premiumFeatures?.length) {
-        h.push(`<div style="margin:0 0 16px;padding:12px 14px;border-radius:8px;background:#f0f9ff;border:1px solid #bae6fd">`);
-        h.push(`<p style="margin:0 0 6px;font-weight:600">${input.tier === 'trial' ? 'Included in your evaluation (and lost on the free tier)' : 'Switch on with a licence'}</p>`);
-        h.push(`<ul style="margin:0 0 10px;padding-left:18px;color:#334155">${input.premiumFeatures.slice(0, 6).map(f => `<li>${esc(f)}</li>`).join('')}</ul>`);
-        h.push(`<a href="${esc(buyUrl)}" style="display:inline-block;background:#0f172a;color:#fff;text-decoration:none;padding:9px 14px;border-radius:8px;font-weight:600">${input.tier === 'trial' ? 'Keep the full feature set' : 'Start the 14-day free trial'}</a></div>`);
+        body.push(box('info',
+            `<div style="font-size:12px;line-height:18px;color:#6b7280;text-transform:uppercase;letter-spacing:1px;font-weight:bold;padding:0 0 6px 0;">${input.tier === 'trial' ? 'Included in your evaluation (and lost on the free tier)' : 'Switch on with a licence'}</div>` +
+            `<ul style="margin:0 0 12px 0;padding-left:18px;font-size:14px;line-height:22px;color:#374151;">${input.premiumFeatures.slice(0, 6).map(f => `<li>${esc(f)}</li>`).join('')}</ul>` +
+            button(buyUrl, input.tier === 'trial' ? 'Keep the full feature set' : 'Get a licence', accent, true)));
     }
     if (input.tips?.length) {
-        h.push(`<p style="margin:0 0 6px;font-weight:600">Next steps</p><ul style="margin:0 0 16px;padding-left:18px;color:#334155">`);
+        body.push(`<div style="font-size:12px;line-height:18px;color:#6b7280;text-transform:uppercase;letter-spacing:1px;font-weight:bold;padding:4px 0 6px 0;">Next steps</div>`);
+        body.push(`<ul style="margin:0 0 16px 0;padding-left:18px;font-size:14px;line-height:22px;color:#374151;">`);
         for (const tip of input.tips.slice(0, 3)) {
-            h.push(`<li style="margin-bottom:6px"><strong>${esc(tip.title)}</strong> — ${esc(tip.body)}${tip.url ? ` <a href="${esc(tip.url)}" style="color:#0369a1">${esc(tip.linkLabel || 'Open in Admin')}</a>` : ''}</li>`);
+            body.push(`<li style="margin-bottom:6px;"><strong style="color:#111827;">${esc(tip.title)}</strong> &ndash; ${esc(tip.body)}${tip.url ? ` <a href="${esc(tip.url)}" style="color:${accent};">${esc(tip.linkLabel || 'Open in Admin')}</a>` : ''}</li>`);
         }
-        h.push('</ul>');
+        body.push('</ul>');
     }
-    if (input.adminUrl) h.push(`<a href="${esc(input.adminUrl)}" style="display:inline-block;margin:0 8px 8px 0;background:#fff;color:#0f172a;border:1px solid #cbd5e1;text-decoration:none;padding:9px 14px;border-radius:8px;font-weight:600">Open ${esc(input.pluginName)}</a>`);
-    h.push(`<a href="${esc(docsUrl)}" style="display:inline-block;margin:0 0 8px;color:#0369a1;padding:9px 0">Docs</a>`);
-    h.push(`</div><p style="margin:16px 0 0;font-size:12px;color:#64748b">${esc(input.settingsHint || `Change the recipient or stop this weekly report in Admin → ${input.pluginName} → Weekly report.`)}</p>`);
-    h.push(`<p style="margin:4px 0 0;font-size:12px;color:#94a3b8">HULO Global Limited</p></div></body></html>`);
+    const buttons: string[] = [];
+    if (input.adminUrl) buttons.push(button(input.adminUrl, `Open ${input.pluginName}`, accent, true));
+    buttons.push(button(docsUrl, 'Docs', accent, false));
+    body.push(`<table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:4px 0 0 0;"><tr>${buttons.map(b => `<td style="padding:0 8px 8px 0;">${b}</td>`).join('')}</tr></table>`);
+    body.push(`<p style="margin:18px 0 0 0;font-size:14px;line-height:22px;color:#374151;">Kind regards,<br>HULO Global Limited</p>`);
+    const h = [emailLayout({
+        title: subject,
+        preheader: lead,
+        brandName: input.storeName || input.pluginName,
+        logoUrl: input.logoUrl,
+        accentColor: accent,
+        bodyHtml: body.join(''),
+        footerHtml: esc(input.settingsHint || `Change the recipient or stop this weekly report in Admin → ${input.pluginName} → Weekly report.`) +
+            '<br>HULO Global Limited sends this report on behalf of the plugin you installed.',
+    })];
 
     return { subject, text: t.join('\n'), html: h.join('') };
 }
